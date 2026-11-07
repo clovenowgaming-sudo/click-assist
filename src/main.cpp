@@ -3,123 +3,154 @@
 
 using namespace geode::prelude;
 
+static char const* frameKey(PlayerObject* p) {
+	if (p->m_isShip) return "ship-frames";
+	if (p->m_isBird) return "ufo-frames";
+	if (p->m_isBall) return "ball-frames";
+	if (p->m_isDart) return "wave-frames";
+	if (p->m_isRobot) return "robot-frames";
+	if (p->m_isSpider) return "spider-frames";
+	if (p->m_isSwing) return "swing-frames";
+	return "cube-frames";
+}
+
+static int bufferFrames(PlayerObject* p) {
+	if (!p) return 0;
+	return static_cast<int>(Mod::get()->getSettingValue<int64_t>(frameKey(p)));
+}
+
+static double frameLen() {
+	auto fps = Mod::get()->getSettingValue<int64_t>("frame-rate");
+	if (fps < 1) fps = 1;
+	return 1.0 / static_cast<double>(fps);
+}
+
+static std::string fmtFrames(double sec) {
+	return fmt::format("{:.1f} frames ({:.0f} ms)", sec / frameLen(), sec * 1000.0);
+}
+
+static void note(std::string const& text) {
+	if (!Mod::get()->getSettingValue<bool>("notify")) return;
+	Notification::create(text, NotificationIcon::None, 0.6f)->show();
+}
+
+struct PadState {
+	bool userDown = false;
+	bool gameDown = false;
+	bool pending = false;
+	bool armed = false;
+	bool fell = false;
+	bool wasGround = true;
+	double pressAt = 0.0;
+	double releaseAt = 0.0;
+	double leftAt = 0.0;
+};
+
 class $modify(CAGameLayer, GJBaseGameLayer) {
 	struct Fields {
 		double now = 0.0;
-		bool wasGround = true;
-		bool pressedWhileGrounded = false;
-		bool holding = false;
-		bool fell = false;
-		double leftGroundAt = 0.0;
-		bool buffering = false;
-		double pressAt = 0.0;
-		int releaseSteps = 0;
+		PadState pads[2];
 	};
 
-	bool inPlay() {
+	bool active() {
 		if (!Mod::get()->getSettingValue<bool>("enabled")) return false;
 		return typeinfo_cast<PlayLayer*>(this) != nullptr;
 	}
 
-	bool cubeLike() {
-		auto p = m_player1;
-		return p && !p->m_isShip && !p->m_isBird && !p->m_isBall && !p->m_isDart
-			&& !p->m_isRobot && !p->m_isSpider && !p->m_isSwing;
-	}
-
-	std::string fmtTime(double sec) {
-		double fps = static_cast<double>(Mod::get()->getSettingValue<int64_t>("frame-rate"));
-		return fmt::format("{:.1f} frames ({:.0f} ms)", sec * fps, sec * 1000.0);
-	}
-
-	void note(std::string const& text) {
-		if (!Mod::get()->getSettingValue<bool>("notify")) return;
-		Notification::create(text, NotificationIcon::None, 0.7f)->show();
-	}
-
 	void handleButton(bool down, int button, bool isPlayer1) {
-		if (button != 1 || !isPlayer1 || !this->inPlay() || !this->cubeLike()) {
+		if (button != 1 || !this->active()) {
 			GJBaseGameLayer::handleButton(down, button, isPlayer1);
 			return;
 		}
+		auto player = isPlayer1 ? m_player1 : m_player2;
+		if (!player) {
+			GJBaseGameLayer::handleButton(down, button, isPlayer1);
+			return;
+		}
+
 		auto f = m_fields.self();
-		auto p = m_player1;
+		auto& s = f->pads[isPlayer1 ? 0 : 1];
 
-		if (!down) {
-			f->holding = false;
-			GJBaseGameLayer::handleButton(down, button, isPlayer1);
+		if (down) {
+			s.userDown = true;
+			s.pending = false;
+
+			if (!player->m_isOnGround && s.fell && (f->now - s.leftAt) <= 0.25) {
+				note("Late click: " + fmtFrames(f->now - s.leftAt));
+				s.fell = false;
+			}
+
+			s.armed = !player->m_isOnGround;
+			s.pressAt = f->now;
+
+			if (s.gameDown) {
+				// game still thinks it is held, so release first to make a fresh click
+				GJBaseGameLayer::handleButton(false, 1, isPlayer1);
+			}
+			s.gameDown = true;
+			GJBaseGameLayer::handleButton(true, 1, isPlayer1);
 			return;
 		}
 
-		f->holding = true;
-		bool assist = Mod::get()->getSettingValue<bool>("assist");
-
-		if (p->m_isOnGround) {
-			f->pressedWhileGrounded = true;
-		} else {
-			if (f->fell && (f->now - f->leftGroundAt) <= 0.3) {
-				double late = f->now - f->leftGroundAt;
-				double coyote = Mod::get()->getSettingValue<double>("coyote-ms") / 1000.0;
-				f->fell = false;
-				if (assist && late <= coyote) {
-					this->note("Too late: " + this->fmtTime(late) + " (saved)");
-					f->pressedWhileGrounded = true;
-					p->m_isOnGround = true;
-					GJBaseGameLayer::handleButton(down, button, isPlayer1);
-					p->m_isOnGround = false;
-					return;
-				}
-				this->note("Too late: " + this->fmtTime(late));
+		s.userDown = false;
+		int frames = bufferFrames(player);
+		if (frames > 0 && s.gameDown) {
+			double hold = frames * frameLen();
+			double elapsed = f->now - s.pressAt;
+			if (elapsed < hold) {
+				s.pending = true;
+				s.releaseAt = s.pressAt + hold;
+				return;
 			}
-			f->buffering = true;
-			f->pressAt = f->now;
 		}
-
-		GJBaseGameLayer::handleButton(down, button, isPlayer1);
+		s.pending = false;
+		s.gameDown = false;
+		GJBaseGameLayer::handleButton(false, 1, isPlayer1);
 	}
 
 	void processCommands(float dt, bool isHalfTick, bool isLastTick) {
 		GJBaseGameLayer::processCommands(dt, isHalfTick, isLastTick);
-		if (!this->inPlay() || !this->cubeLike()) return;
+		if (!this->active()) return;
 
 		auto f = m_fields.self();
-		auto p = m_player1;
 		f->now += dt;
 
-		if (f->releaseSteps > 0 && --f->releaseSteps == 0 && !f->holding) {
-			GJBaseGameLayer::handleButton(false, 1, true);
-		}
+		for (int i = 0; i < 2; i++) {
+			auto p = (i == 0) ? m_player1 : m_player2;
+			if (!p) continue;
+			bool isP1 = (i == 0);
+			auto& s = f->pads[i];
+			bool g = p->m_isOnGround;
 
-		bool g = p->m_isOnGround;
+			if (s.pending && f->now >= s.releaseAt) {
+				s.pending = false;
+				s.gameDown = false;
+				GJBaseGameLayer::handleButton(false, 1, isP1);
+			}
 
-		if (g && !f->wasGround) {
-			f->pressedWhileGrounded = false;
-			f->fell = false;
-			if (f->buffering) {
-				f->buffering = false;
-				double early = f->now - f->pressAt;
-				if (early <= 0.3) {
-					bool assist = Mod::get()->getSettingValue<bool>("assist");
-					double buf = Mod::get()->getSettingValue<double>("buffer-ms") / 1000.0;
-					if (assist && !f->holding && early <= buf) {
-						this->note("Too early: " + this->fmtTime(early) + " (saved)");
-						GJBaseGameLayer::handleButton(true, 1, true);
-						f->releaseSteps = 2;
-					} else {
-						this->note("Too early: " + this->fmtTime(early));
+			if (g && !s.wasGround) {
+				s.fell = false;
+				if (s.armed && s.gameDown) {
+					double early = f->now - s.pressAt;
+					if (early <= 0.5) {
+						note("Early click: " + fmtFrames(early) + (s.userDown ? " (held)" : " (buffered)"));
+					}
+					if (p->m_isBall || p->m_isSpider) {
+						GJBaseGameLayer::handleButton(false, 1, isP1);
+						GJBaseGameLayer::handleButton(true, 1, isP1);
+						s.pressAt = f->now;
+						if (s.pending) {
+							s.releaseAt = std::max(s.releaseAt, f->now + 2.0 * frameLen());
+						}
 					}
 				}
+				s.armed = false;
+			} else if (!g && s.wasGround) {
+				s.leftAt = f->now;
+				s.fell = !s.gameDown;
 			}
-		} else if (!g && f->wasGround) {
-			f->leftGroundAt = f->now;
-			f->fell = !f->pressedWhileGrounded && !f->holding;
-		}
 
-		if (f->buffering) {
-			double v = p->m_isUpsideDown ? -p->m_yVelocity : p->m_yVelocity;
-			if (v > 0.0) f->buffering = false;
+			s.wasGround = g;
 		}
-
-		f->wasGround = g;
 	}
 };

@@ -6,50 +6,92 @@
 	},
 	"id": "clv.click-assist",
 	"name": "Click Assist",
-	"version": "v1.1.0",
+	"version": "v1.2.0",
 	"developer": "Vinz",
-	"description": "Shows how many frames early or late your clicks are, and optionally helps with input buffering and coyote time. Assist mod, do not use for leaderboard records.",
+	"description": "Input buffer for every game mode with a configurable frame window, plus early/late click notifications. Assist mod, do not use for leaderboard records.",
 	"settings": {
 		"enabled": {
 			"type": "bool",
 			"name": "Enabled",
 			"default": true
 		},
-		"assist": {
-			"type": "bool",
-			"name": "Assist",
-			"description": "Buffer early clicks and allow late clicks. Turn off to only get timing notifications.",
-			"default": true
-		},
 		"notify": {
 			"type": "bool",
 			"name": "Timing Notifications",
-			"description": "Show 'Too early' and 'Too late' notifications with the frame count.",
+			"description": "Show early/late click notifications with the frame count.",
 			"default": true
-		},
-		"buffer-ms": {
-			"type": "float",
-			"name": "Input Buffer (ms)",
-			"description": "An early click made in the air within this time jumps automatically when you land.",
-			"default": 150.0,
-			"min": 0.0,
-			"max": 300.0
-		},
-		"coyote-ms": {
-			"type": "float",
-			"name": "Coyote Time (ms)",
-			"description": "A late click within this time after leaving the ground still jumps.",
-			"default": 80.0,
-			"min": 0.0,
-			"max": 250.0
 		},
 		"frame-rate": {
 			"type": "int",
-			"name": "Frame Rate For Display",
-			"description": "Frames are calculated as time multiplied by this value (60 = normal game frames, 240 = physics steps).",
-			"default": 60,
+			"name": "Frame Rate",
+			"description": "Frames per second used to convert frames to time (240 = physics steps, 60 = display frames).",
+			"default": 240,
 			"min": 1,
-			"max": 360
+			"max": 480
+		},
+		"cube-frames": {
+			"type": "int",
+			"name": "Cube Buffer (frames)",
+			"description": "A click is held for at least this many frames. 0 = off.",
+			"default": 18,
+			"min": 0,
+			"max": 120
+		},
+		"ship-frames": {
+			"type": "int",
+			"name": "Ship Buffer (frames)",
+			"description": "Not recommended: makes the ship rise longer. 0 = off.",
+			"default": 0,
+			"min": 0,
+			"max": 120
+		},
+		"ball-frames": {
+			"type": "int",
+			"name": "Ball Buffer (frames)",
+			"description": "A click is held for at least this many frames, and re-tapped on landing. 0 = off.",
+			"default": 18,
+			"min": 0,
+			"max": 120
+		},
+		"ufo-frames": {
+			"type": "int",
+			"name": "UFO Buffer (frames)",
+			"description": "A click is held for at least this many frames. 0 = off.",
+			"default": 12,
+			"min": 0,
+			"max": 120
+		},
+		"wave-frames": {
+			"type": "int",
+			"name": "Wave Buffer (frames)",
+			"description": "Not recommended: makes the wave go up longer. 0 = off.",
+			"default": 0,
+			"min": 0,
+			"max": 120
+		},
+		"robot-frames": {
+			"type": "int",
+			"name": "Robot Buffer (frames)",
+			"description": "A click is held for at least this many frames. 0 = off.",
+			"default": 18,
+			"min": 0,
+			"max": 120
+		},
+		"spider-frames": {
+			"type": "int",
+			"name": "Spider Buffer (frames)",
+			"description": "A click is held for at least this many frames, and re-tapped on landing. 0 = off.",
+			"default": 18,
+			"min": 0,
+			"max": 120
+		},
+		"swing-frames": {
+			"type": "int",
+			"name": "Swing Buffer (frames)",
+			"description": "A click is held for at least this many frames. 0 = off.",
+			"default": 12,
+			"min": 0,
+			"max": 120
 		}
 	}
 }
