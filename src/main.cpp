@@ -78,8 +78,8 @@ class $modify(CAGameLayer, GJBaseGameLayer) {
 		GJBaseGameLayer::handleButton(down, button, isPlayer1);
 	}
 
-	void processCommands(float dt) {
-		GJBaseGameLayer::processCommands(dt);
+	void processCommands(float dt, bool isHalfTick, bool isLastTick) {
+		GJBaseGameLayer::processCommands(dt, isHalfTick, isLastTick);
 		if (!this->inPlay() || !this->cubeLike()) return;
 
 		auto f = m_fields.self();
