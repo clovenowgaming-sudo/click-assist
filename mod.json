@@ -6,9 +6,9 @@
 	},
 	"id": "clv.click-assist",
 	"name": "Click Assist",
-	"version": "v1.4.0",
+	"version": "v1.5.0",
 	"developer": "Vinz",
-	"description": "Input buffer per game mode, early/late click and death timing reports, and an optional hitbox shrink. CHEAT: hitbox shrink makes levels easier, do not use it for leaderboard records.",
+	"description": "Input buffer per game mode, timing reports, hitbox shrink, hitbox display with trail, and an experimental pathfinder with recording. CHEAT: do not use for leaderboard records.",
 	"settings": {
 		"enabled": {
 			"type": "bool",
@@ -17,8 +17,8 @@
 		},
 		"notify": {
 			"type": "bool",
-			"name": "Timing Notifications",
-			"description": "Show early/late click, death report and hitbox notifications.",
+			"name": "Notifications",
+			"description": "Show early/late click, death report, hitbox and pathfinder notifications.",
 			"default": true
 		},
 		"frame-rate": {
@@ -29,16 +29,44 @@
 			"min": 1,
 			"max": 480
 		},
+		"show-hitboxes": {
+			"type": "bool",
+			"name": "Show Hitboxes",
+			"description": "Draw hazards (red), solids (blue) and players (green).",
+			"default": true
+		},
+		"hitbox-trail": {
+			"type": "bool",
+			"name": "Hitbox Trail",
+			"description": "Draw a fading trail of the player hitbox.",
+			"default": true
+		},
+		"trail-length": {
+			"type": "int",
+			"name": "Trail Length",
+			"description": "How many frames the trail keeps.",
+			"default": 120,
+			"min": 10,
+			"max": 600
+		},
+		"hitbox-range": {
+			"type": "int",
+			"name": "Hitbox Draw Range",
+			"description": "Only draw object hitboxes within this distance of the player (lower = faster).",
+			"default": 450,
+			"min": 100,
+			"max": 2000
+		},
 		"hitbox-enabled": {
 			"type": "bool",
 			"name": "Hitbox Shrink (CHEAT)",
 			"description": "Shrinks hazard and player hitboxes so you survive slightly wrong timing.",
-			"default": true
+			"default": false
 		},
 		"hazard-scale": {
 			"type": "int",
 			"name": "Hazard Hitbox Size (%)",
-			"description": "100 = normal. Lower = smaller hazard hitbox = easier.",
+			"description": "100 = normal. Lower = easier.",
 			"default": 60,
 			"min": 10,
 			"max": 100
@@ -46,7 +74,7 @@
 		"player-scale": {
 			"type": "int",
 			"name": "Player Hitbox Size (%)",
-			"description": "100 = normal. Lower = smaller player hitbox = easier.",
+			"description": "100 = normal. Lower = easier.",
 			"default": 100,
 			"min": 10,
 			"max": 100
@@ -55,6 +83,34 @@
 			"type": "bool",
 			"name": "Also Shrink Solid Blocks",
 			"description": "Not recommended: the player can get stuck inside blocks.",
+			"default": false
+		},
+		"pathfinder-enabled": {
+			"type": "bool",
+			"name": "Pathfinder (EXPERIMENTAL CHEAT)",
+			"description": "Searches for inputs by itself using checkpoint look-ahead and records them. Heavy on weak devices.",
+			"default": false
+		},
+		"pf-horizon": {
+			"type": "int",
+			"name": "Pathfinder Look-ahead (updates)",
+			"description": "How far ahead each candidate is simulated. Higher = smarter but slower.",
+			"default": 20,
+			"min": 2,
+			"max": 120
+		},
+		"pf-interval": {
+			"type": "int",
+			"name": "Pathfinder Interval (updates)",
+			"description": "A new decision is made every N updates. Higher = faster but less precise.",
+			"default": 3,
+			"min": 1,
+			"max": 30
+		},
+		"replay-path": {
+			"type": "bool",
+			"name": "Replay Saved Path",
+			"description": "Play back the last path saved for this level. Turn off Pathfinder when using this.",
 			"default": false
 		},
 		"cube-frames": {
