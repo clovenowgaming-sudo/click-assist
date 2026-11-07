@@ -1,35 +1,42 @@
 {
-	"geode": "5.11.2",
-	"gd": {
-		"win": "2.2081",
-		"android": "2.2081"
-	},
-	"id": "clv.click-assist",
-	"name": "Click Assist",
-	"version": "v1.0.0",
-	"developer": "clv",
-	"description": "Bikin tight window gampang: input buffer + coyote time, jadi klik kamu lebih toleran.",
-	"settings": {
-		"enabled": {
-			"type": "bool",
-			"name": "Enabled",
-			"default": true
-		},
-		"buffer-ms": {
-			"type": "float",
-			"name": "Input Buffer (ms)",
-			"description": "Klik di udara diingat segini lama, lalu otomatis jump saat mendarat.",
-			"default": 120.0,
-			"min": 0.0,
-			"max": 400.0
-		},
-		"coyote-ms": {
-			"type": "float",
-			"name": "Coyote Time (ms)",
-			"description": "Masih bisa jump sesaat setelah lepas dari tanah/ujung block.",
-			"default": 60.0,
-			"min": 0.0,
-			"max": 250.0
-		}
-	}
+"geode": "5.11.2",
+"gd": {
+"win": "2.2081",
+"android": "2.2081"
+},
+"id": "clv.click-assist",
+"name": "Click Assist",
+"version": "v1.0.2",
+"developer": "Vinz",
+"description": "Makes tight windows easier with input buffering and coyote time. This is an assist mod, do not use it for leaderboard records.",
+"settings": {
+"enabled": {
+"type": "bool",
+"name": "Enabled",
+"description": "Turn the click assist on or off.",
+"default": true
+},
+"debug": {
+"type": "bool",
+"name": "Debug Notifications",
+"description": "Show a notification every time the assist activates.",
+"default": true
+},
+"buffer-ms": {
+"type": "float",
+"name": "Input Buffer (ms)",
+"description": "A click made in the air is remembered for this long and jumps automatically when you land.",
+"default": 150.0,
+"min": 0.0,
+"max": 400.0
+},
+"coyote-ms": {
+"type": "float",
+"name": "Coyote Time (ms)",
+"description": "You can still jump for a short moment after leaving the ground or the edge of a block.",
+"default": 80.0,
+"min": 0.0,
+"max": 250.0
+}
+}
 }
