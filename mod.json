@@ -6,7 +6,7 @@
 	},
 	"id": "clv.click-assist",
 	"name": "Click Assist",
-	"version": "v1.5.0",
+	"version": "v1.5.1",
 	"developer": "Vinz",
 	"description": "Input buffer per game mode, timing reports, hitbox shrink, hitbox display with trail, and an experimental pathfinder with recording. CHEAT: do not use for leaderboard records.",
 	"settings": {

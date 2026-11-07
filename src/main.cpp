@@ -4,6 +4,7 @@
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/PauseLayer.hpp>
 #include <algorithm>
+#include <chrono>
 #include <deque>
 #include <fstream>
 #include <vector>
@@ -23,6 +24,9 @@ static bool g_bypass = false;
 static bool g_simDead = false;
 static bool g_simWon = false;
 static int g_ticks = 0;
+
+static std::vector<std::pair<int, bool>> g_replay;
+static size_t g_replayIdx = 0;
 
 static char const* frameKey(PlayerObject* p) {
 	if (p->m_isShip) return "ship-frames";
@@ -153,6 +157,15 @@ class $modify(CAGameLayer, GJBaseGameLayer) {
 	}
 
 	void processCommands(float dt, bool isHalfTick, bool isLastTick) {
+		// replay saved path at physics-step precision
+		if (!g_searching && this->active()
+			&& Mod::get()->getSettingValue<bool>("replay-path")) {
+			while (g_replayIdx < g_replay.size() && g_replay[g_replayIdx].first <= g_ticks) {
+				GJBaseGameLayer::handleButton(g_replay[g_replayIdx].second, 1, true);
+				g_replayIdx++;
+			}
+		}
+
 		GJBaseGameLayer::processCommands(dt, isHalfTick, isLastTick);
 		if (g_searching) return;
 		g_ticks++;
@@ -211,13 +224,11 @@ class $modify(CAGameLayer, GJBaseGameLayer) {
 class $modify(CAPlayLayer, PlayLayer) {
 	struct Fields {
 		CCDrawNode* node = nullptr;
+		CCLabelBMFont* label = nullptr;
 		std::deque<CCRect> trail;
 		std::vector<std::pair<int, bool>> record;
-		std::vector<std::pair<int, bool>> replay;
-		size_t replayIdx = 0;
 		bool wantDown = false;
 		int flipLeft = 0;
-		bool flipBack = false;
 		int sinceDecide = 999;
 	};
 
@@ -226,16 +237,29 @@ class $modify(CAPlayLayer, PlayLayer) {
 		return Mod::get()->getSaveDir() / fmt::format("path_{}.txt", id);
 	}
 
-	void loadReplay() {
+	void pfStatus(std::string const& s) {
 		auto f = m_fields.self();
-		f->replay.clear();
-		f->replayIdx = 0;
+		if (!f->label) {
+			f->label = CCLabelBMFont::create("", "bigFont.fnt");
+			f->label->setScale(0.38f);
+			f->label->setAnchorPoint({0.f, 1.f});
+			auto win = CCDirector::get()->getWinSize();
+			f->label->setPosition({6.f, win.height - 6.f});
+			this->addChild(f->label, 1000);
+		}
+		f->label->setVisible(Mod::get()->getSettingValue<bool>("notify"));
+		f->label->setString(s.c_str());
+	}
+
+	void loadReplay() {
+		g_replay.clear();
+		g_replayIdx = 0;
 		if (!Mod::get()->getSettingValue<bool>("replay-path")) return;
 		std::ifstream in(this->pathFile());
 		int t, d;
-		while (in >> t >> d) f->replay.push_back({t, d != 0});
-		if (f->replay.empty()) note("No saved path for this level");
-		else note(fmt::format("Loaded path: {} inputs", f->replay.size()));
+		while (in >> t >> d) g_replay.push_back({t, d != 0});
+		if (g_replay.empty()) note("No saved path for this level");
+		else note(fmt::format("Loaded path: {} inputs", g_replay.size()));
 	}
 
 	void saveRecord() {
@@ -283,64 +307,88 @@ class $modify(CAPlayLayer, PlayLayer) {
 
 	void pfDecide(float dt) {
 		auto f = m_fields.self();
+		auto t0 = std::chrono::steady_clock::now();
 		int horizon = static_cast<int>(Mod::get()->getSettingValue<int64_t>("pf-horizon"));
 		bool cur = f->wantDown;
 
 		auto cp = this->createCheckpoint();
-		if (!cp) return;
+		if (!cp) {
+			this->pfStatus("PF: createCheckpoint returned null");
+			return;
+		}
 		cp->retain();
 
-		int const flips[4] = {0, 100000, 1, 3};
-		int bestIdx = 0;
+		// -1 = keep current state, 0 = release, N>0 = press for N updates then release
+		int const cands[7] = {-1, 0, 1, 3, 6, 12, 24};
+		bool internal = cur;
+		int bestC = -1;
+		int bestSurv = -1;
 		long long bestScore = -1;
-		bool foundFull = false;
+		int tried = 0;
 
-		for (int c = 0; c < 4; c++) {
-			if (c > 0) this->loadFromCheckpoint(cp);
+		for (int ci = 0; ci < 7; ci++) {
+			int c = cands[ci];
+			if (c == 0 && !cur) continue;
+			if (tried > 0) this->loadFromCheckpoint(cp);
+			tried++;
+
 			g_searching = true;
+			if (internal != cur) {
+				this->handleButton(cur, 1, true);
+				internal = cur;
+			}
 			g_simDead = false;
 			g_simWon = false;
-			bool simState = cur;
+
 			int survived = 0;
 			for (int s = 0; s < horizon; s++) {
-				bool want = (s < flips[c]) ? !cur : cur;
-				if (want != simState) {
+				bool want = (c == -1) ? cur : (c == 0 ? false : (s < c));
+				if (want != internal) {
 					this->handleButton(want, 1, true);
-					simState = want;
+					internal = want;
 				}
 				PlayLayer::update(dt);
-				if (g_simDead) break;
-				survived++;
 				if (g_simWon) {
 					survived = horizon;
 					break;
 				}
+				if (g_simDead || (m_player1 && m_player1->m_isDead)) break;
+				survived++;
 			}
 			g_searching = false;
+
 			long long score = static_cast<long long>(survived) * 1000000LL
 				+ static_cast<long long>(m_player1 ? m_player1->getPositionX() : 0.f);
-			if (survived >= horizon && !foundFull) {
-				foundFull = true;
-				bestIdx = c;
-				bestScore = score;
-				break;
-			}
 			if (score > bestScore) {
 				bestScore = score;
-				bestIdx = c;
+				bestC = c;
+				bestSurv = survived;
 			}
+			if (survived >= horizon) break;
 		}
 
+		// restore real state and sync button state with reality
 		this->loadFromCheckpoint(cp);
+		g_searching = true;
+		if (internal != cur) {
+			this->handleButton(cur, 1, true);
+			internal = cur;
+		}
+		g_searching = false;
 		cp->release();
 
-		if (flips[bestIdx] > 0) {
-			this->setHeld(!cur);
-			if (flips[bestIdx] < 100000) {
-				f->flipLeft = flips[bestIdx];
-				f->flipBack = cur;
-			}
-		}
+		bool next = (bestC == -1) ? cur : (bestC == 0 ? false : true);
+		if (next != cur) this->setHeld(next);
+		if (bestC > 0) f->flipLeft = bestC;
+
+		auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+			std::chrono::steady_clock::now() - t0).count();
+		this->pfStatus(fmt::format(
+			"PF: {} | survive {}/{} | tried {} | {} ms{}",
+			bestC == -1 ? "keep" : (bestC == 0 ? "release" : fmt::format("press {}", bestC)),
+			bestSurv, horizon, tried, ms,
+			bestSurv < horizon ? " | NO SAFE PATH" : ""
+		));
 	}
 
 	void update(float dt) {
@@ -350,17 +398,11 @@ class $modify(CAPlayLayer, PlayLayer) {
 		}
 		auto f = m_fields.self();
 		bool alive = m_player1 && !m_player1->m_isDead;
+		bool replaying = Mod::get()->getSettingValue<bool>("replay-path") && !g_replay.empty();
 
-		if (alive && !f->replay.empty() && Mod::get()->getSettingValue<bool>("replay-path")) {
-			while (f->replayIdx < f->replay.size() && f->replay[f->replayIdx].first <= g_ticks) {
-				g_bypass = true;
-				this->handleButton(f->replay[f->replayIdx].second, 1, true);
-				g_bypass = false;
-				f->replayIdx++;
-			}
-		} else if (alive && Mod::get()->getSettingValue<bool>("pathfinder-enabled")) {
+		if (alive && !replaying && Mod::get()->getSettingValue<bool>("pathfinder-enabled")) {
 			if (f->flipLeft > 0) {
-				if (--f->flipLeft == 0) this->setHeld(f->flipBack);
+				if (--f->flipLeft == 0) this->setHeld(false);
 			} else {
 				int interval = static_cast<int>(Mod::get()->getSettingValue<int64_t>("pf-interval"));
 				if (++f->sinceDecide >= interval) {
@@ -368,6 +410,8 @@ class $modify(CAPlayLayer, PlayLayer) {
 					this->pfDecide(dt);
 				}
 			}
+		} else if (f->label) {
+			f->label->setString("");
 		}
 
 		PlayLayer::update(dt);
