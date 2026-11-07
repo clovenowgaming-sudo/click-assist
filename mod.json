@@ -1,55 +1,55 @@
 {
-"geode": "5.11.2",
-"gd": {
-"win": "2.2081",
-"android": "2.2081"
-},
-"id": "clv.click-assist",
-"name": "Click Assist",
-"version": "v1.1.0",
-"developer": "Vinz",
-"description": "Shows how many frames early or late your clicks are, and optionally helps with input buffering and coyote time. Assist mod, do not use for leaderboard records.",
-"settings": {
-"enabled": {
-"type": "bool",
-"name": "Enabled",
-"default": true
-},
-"assist": {
-"type": "bool",
-"name": "Assist",
-"description": "Buffer early clicks and allow late clicks. Turn off to only get timing notifications.",
-"default": true
-},
-"notify": {
-"type": "bool",
-"name": "Timing Notifications",
-"description": "Show 'Too early' and 'Too late' notifications with the frame count.",
-"default": true
-},
-"buffer-ms": {
-"type": "float",
-"name": "Input Buffer (ms)",
-"description": "An early click made in the air within this time jumps automatically when you land.",
-"default": 150.0,
-"min": 0.0,
-"max": 300.0
-},
-"coyote-ms": {
-"type": "float",
-"name": "Coyote Time (ms)",
-"description": "A late click within this time after leaving the ground still jumps.",
-"default": 80.0,
-"min": 0.0,
-"max": 250.0
-},
-"frame-rate": {
-"type": "int",
-"name": "Frame Rate For Display",
-"description": "Frames are calculated as time multiplied by this value (60 = normal game frames, 240 = physics steps).",
-"default": 60,
-"min": 1,
-"max": 360
-}
-}
+	"geode": "5.11.2",
+	"gd": {
+		"win": "2.2081",
+		"android": "2.2081"
+	},
+	"id": "clv.click-assist",
+	"name": "Click Assist",
+	"version": "v1.1.0",
+	"developer": "Vinz",
+	"description": "Shows how many frames early or late your clicks are, and optionally helps with input buffering and coyote time. Assist mod, do not use for leaderboard records.",
+	"settings": {
+		"enabled": {
+			"type": "bool",
+			"name": "Enabled",
+			"default": true
+		},
+		"assist": {
+			"type": "bool",
+			"name": "Assist",
+			"description": "Buffer early clicks and allow late clicks. Turn off to only get timing notifications.",
+			"default": true
+		},
+		"notify": {
+			"type": "bool",
+			"name": "Timing Notifications",
+			"description": "Show 'Too early' and 'Too late' notifications with the frame count.",
+			"default": true
+		},
+		"buffer-ms": {
+			"type": "float",
+			"name": "Input Buffer (ms)",
+			"description": "An early click made in the air within this time jumps automatically when you land.",
+			"default": 150.0,
+			"min": 0.0,
+			"max": 300.0
+		},
+		"coyote-ms": {
+			"type": "float",
+			"name": "Coyote Time (ms)",
+			"description": "A late click within this time after leaving the ground still jumps.",
+			"default": 80.0,
+			"min": 0.0,
+			"max": 250.0
+		},
+		"frame-rate": {
+			"type": "int",
+			"name": "Frame Rate For Display",
+			"description": "Frames are calculated as time multiplied by this value (60 = normal game frames, 240 = physics steps).",
+			"default": 60,
+			"min": 1,
+			"max": 360
+		}
+	}
 }
