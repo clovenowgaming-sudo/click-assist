@@ -10,6 +10,7 @@ static double g_clickX = 0.0;
 static double g_prevX = 0.0;
 static double g_speed = 0.0;
 static double g_lastReport = -100.0;
+static double g_lastSave = -100.0;
 
 static char const* frameKey(PlayerObject* p) {
 	if (p->m_isShip) return "ship-frames";
@@ -41,6 +42,17 @@ static void note(std::string const& text) {
 	log::info("[ClickAssist] {}", text);
 	if (!Mod::get()->getSettingValue<bool>("notify")) return;
 	Notification::create(text, NotificationIcon::None, 0.9f)->show();
+}
+
+static CCRect shrinkRect(CCRect r, float scale) {
+	float w = r.size.width * scale;
+	float h = r.size.height * scale;
+	return CCRect(r.getMidX() - w / 2.f, r.getMidY() - h / 2.f, w, h);
+}
+
+static bool rectsOverlap(CCRect const& a, CCRect const& b) {
+	return a.getMinX() <= b.getMaxX() && a.getMaxX() >= b.getMinX()
+		&& a.getMinY() <= b.getMaxY() && a.getMaxY() >= b.getMinY();
 }
 
 struct PadState {
@@ -176,8 +188,33 @@ class $modify(CAGameLayer, GJBaseGameLayer) {
 
 class $modify(CAPlayLayer, PlayLayer) {
 	void destroyPlayer(PlayerObject* player, GameObject* obj) {
+		auto mod = Mod::get();
+		if (mod->getSettingValue<bool>("enabled")
+			&& mod->getSettingValue<bool>("hitbox-enabled")
+			&& player && obj && !player->m_isDead) {
+
+			bool isHazard = obj->m_objectType == GameObjectType::Hazard;
+			bool isSolid = obj->m_objectType == GameObjectType::Solid;
+			bool blocks = mod->getSettingValue<bool>("shrink-blocks");
+
+			if (isHazard || (isSolid && blocks)) {
+				float hs = static_cast<float>(mod->getSettingValue<int64_t>("hazard-scale")) / 100.f;
+				float ps = static_cast<float>(mod->getSettingValue<int64_t>("player-scale")) / 100.f;
+				CCRect pr = shrinkRect(player->getObjectRect(), ps);
+				CCRect orr = shrinkRect(obj->getObjectRect(), hs);
+				if (!rectsOverlap(pr, orr)) {
+					if (g_now - g_lastSave > 0.4) {
+						g_lastSave = g_now;
+						note("Hitbox saved you");
+					}
+					return;
+				}
+			}
+		}
+
 		PlayLayer::destroyPlayer(player, obj);
-		if (!Mod::get()->getSettingValue<bool>("enabled")) return;
+
+		if (!mod->getSettingValue<bool>("enabled")) return;
 		if (player != m_player1) return;
 		if (g_now - g_lastReport < 0.5) return;
 		g_lastReport = g_now;
