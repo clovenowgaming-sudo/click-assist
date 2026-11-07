@@ -6,7 +6,7 @@
 	},
 	"id": "clv.click-assist",
 	"name": "Click Assist",
-	"version": "v1.2.0",
+	"version": "v1.3.0",
 	"developer": "Vinz",
 	"description": "Input buffer for every game mode with a configurable frame window, plus early/late click notifications. Assist mod, do not use for leaderboard records.",
 	"settings": {

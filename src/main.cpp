@@ -1,7 +1,15 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/GJBaseGameLayer.hpp>
+#include <Geode/modify/PlayLayer.hpp>
 
 using namespace geode::prelude;
+
+static double g_now = 0.0;
+static double g_clickAt = -100.0;
+static double g_clickX = 0.0;
+static double g_prevX = 0.0;
+static double g_speed = 0.0;
+static double g_lastReport = -100.0;
 
 static char const* frameKey(PlayerObject* p) {
 	if (p->m_isShip) return "ship-frames";
@@ -30,8 +38,9 @@ static std::string fmtFrames(double sec) {
 }
 
 static void note(std::string const& text) {
+	log::info("[ClickAssist] {}", text);
 	if (!Mod::get()->getSettingValue<bool>("notify")) return;
-	Notification::create(text, NotificationIcon::None, 0.6f)->show();
+	Notification::create(text, NotificationIcon::None, 0.9f)->show();
 }
 
 struct PadState {
@@ -72,6 +81,10 @@ class $modify(CAGameLayer, GJBaseGameLayer) {
 		auto& s = f->pads[isPlayer1 ? 0 : 1];
 
 		if (down) {
+			if (isPlayer1) {
+				g_clickAt = f->now;
+				g_clickX = player->getPositionX();
+			}
 			s.userDown = true;
 			s.pending = false;
 
@@ -84,7 +97,6 @@ class $modify(CAGameLayer, GJBaseGameLayer) {
 			s.pressAt = f->now;
 
 			if (s.gameDown) {
-				// game still thinks it is held, so release first to make a fresh click
 				GJBaseGameLayer::handleButton(false, 1, isPlayer1);
 			}
 			s.gameDown = true;
@@ -114,6 +126,13 @@ class $modify(CAGameLayer, GJBaseGameLayer) {
 
 		auto f = m_fields.self();
 		f->now += dt;
+		g_now = f->now;
+
+		if (m_player1 && dt > 0.f) {
+			double x = m_player1->getPositionX();
+			if (x > g_prevX) g_speed = (x - g_prevX) / dt;
+			g_prevX = x;
+		}
 
 		for (int i = 0; i < 2; i++) {
 			auto p = (i == 0) ? m_player1 : m_player2;
@@ -152,5 +171,33 @@ class $modify(CAGameLayer, GJBaseGameLayer) {
 
 			s.wasGround = g;
 		}
+	}
+};
+
+class $modify(CAPlayLayer, PlayLayer) {
+	void destroyPlayer(PlayerObject* player, GameObject* obj) {
+		PlayLayer::destroyPlayer(player, obj);
+		if (!Mod::get()->getSettingValue<bool>("enabled")) return;
+		if (player != m_player1) return;
+		if (g_now - g_lastReport < 0.5) return;
+		g_lastReport = g_now;
+
+		double since = g_now - g_clickAt;
+		std::string msg;
+		if (since > 2.0 || g_clickAt < 0.0) {
+			msg = "Died: no click in the last 2 seconds";
+		} else {
+			msg = "Died " + fmtFrames(since) + " after your click";
+			if (obj && g_speed > 1.0) {
+				double dx = obj->getPositionX() - g_clickX;
+				double framesAhead = dx / g_speed / frameLen();
+				if (framesAhead >= 0.0) {
+					msg += fmt::format(" | Hazard was {:.1f} frames ahead when you clicked", framesAhead);
+				} else {
+					msg += fmt::format(" | You clicked {:.1f} frames AFTER the hazard", -framesAhead);
+				}
+			}
+		}
+		note(msg);
 	}
 };
